@@ -70,7 +70,7 @@ class CloudwatchWrapper(object):
         metrics = self.client.list_metrics(**args)
         metrics = metrics['Metrics']
         end = datetime.datetime.utcnow()
-        start = end - datetime.timedelta(minutes=5)
+        start = end - datetime.timedelta(seconds=period)
         data = collections.defaultdict(int)
         for metric in metrics:
             metric_dimensions = {d['Name']: d['Value'] for d in metric['Dimensions']}
@@ -80,7 +80,9 @@ class CloudwatchWrapper(object):
                 continue
             response = self.client.get_metric_statistics(Namespace=metric['Namespace'], MetricName=metric['MetricName'], Dimensions=metric['Dimensions'],
                                                          StartTime=start, EndTime=end, Period=period, Statistics=statistics)
-            data_points = sorted(response['Datapoints'], key=lambda x: x["Timestamp"])
+
+            # There is only one data point because we set end - start = period above
+            data_points = response['Datapoints']
             if data_points:
                 if len(statistics) == 1:
                     data[metric['MetricName']] += data_points[0][statistics[0]]
