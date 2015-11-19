@@ -48,6 +48,12 @@ class CloudwatchWrapper(object):
         self.client = boto3.client('cloudwatch', region_name=region)
 
     def query(self, dimensions, metric_name, statistics='Sum', namespace=None, unit=None, period=60):
+        # special case to gather all types at once
+        if statistics is None:
+            statistics = ['Sum', 'Average', 'Maximum', 'SampleCount', 'Minimum']
+        elif isinstance(statistics, basestring):
+            statistics = [statistics]
+
         filter_dimension_keys = set()
         filter_dimension_pattern = {}
         for key, val in list(dimensions.items()):
@@ -73,10 +79,13 @@ class CloudwatchWrapper(object):
             if filter_dimension_pattern and not matches(metric_dimensions, filter_dimension_pattern):
                 continue
             response = self.client.get_metric_statistics(Namespace=metric['Namespace'], MetricName=metric['MetricName'], Dimensions=metric['Dimensions'],
-                                                         StartTime=start, EndTime=end, Period=period, Statistics=[statistics])
+                                                         StartTime=start, EndTime=end, Period=period, Statistics=statistics)
             data_points = sorted(response['Datapoints'], key=lambda x: x["Timestamp"])
             if data_points:
-                data[metric['MetricName']] += data_points[-1][statistics]
+                if len(statistics) == 1:
+                    data[metric['MetricName']] += data_points[0][statistics[0]]
+                else:
+                    data[metric['MetricName']] = dict(map(lambda stat: (stat, data_points[0][stat]), statistics))
         return data
 
 
