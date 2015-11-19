@@ -11,6 +11,8 @@ import logging
 import requests
 import sys
 
+from zmon_worker_monitor.zmon_worker.errors import CheckError
+
 logging.getLogger('botocore').setLevel(logging.WARN)
 
 from zmon_worker_monitor.adapters.ifunctionfactory_plugin import IFunctionFactoryPlugin, propartial
@@ -48,6 +50,9 @@ class CloudwatchWrapper(object):
         self.client = boto3.client('cloudwatch', region_name=region)
 
     def query(self, dimensions, metric_name, statistics='Sum', namespace=None, unit=None, period=60):
+        if period < 60 or period % 60 != 0:
+            raise CheckError('Period must be greater than and a multiple of 60')
+
         # special case to gather all types at once
         if statistics is None:
             statistics = ['Sum', 'Average', 'Maximum', 'SampleCount', 'Minimum']
